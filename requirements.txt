@@ -1,8 +1,9 @@
 fastapi>=0.109.1
 uvicorn[standard]>=0.24.0
-python-multipart
+python-multipart>=0.0.6
 pillow>=10.0.0
 transformers>=4.21.0
 torch>=2.0.0
-requests
 pytesseract>=0.3.10
+pydantic-settings>=2.0.0
+python-dotenv>=1.0.0

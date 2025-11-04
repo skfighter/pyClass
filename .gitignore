@@ -61,3 +61,16 @@ env/
 # OS
 .DS_Store
 Thumbs.db
+
+# Environment variables
+.env
+.env.local
+
+# Test files
+test_*.png
+test_*.jpg
+test_*.jpeg
+
+# Logs
+*.log
+logs/
