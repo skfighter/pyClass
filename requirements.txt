@@ -1,2 +1,8 @@
 fastapi>=0.109.1
 uvicorn[standard]>=0.24.0
+python-multipart
+pillow>=10.0.0
+transformers>=4.21.0
+torch>=2.0.0
+requests
+pytesseract>=0.3.10
