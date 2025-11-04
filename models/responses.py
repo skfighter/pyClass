@@ -99,3 +99,20 @@ class InfoResponse(BaseModel):
                 }
             }
         }
+
+
+class HumanCountResponse(BaseModel):
+    """Response model for human count endpoint"""
+    
+    humansCount: int = Field(
+        ...,
+        description="Number of humans detected in the image",
+        ge=0
+    )
+    
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "humansCount": 3
+            }
+        }

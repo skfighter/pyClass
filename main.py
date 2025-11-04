@@ -18,7 +18,8 @@ import uvicorn
 
 from config import settings
 from services.image_service import ImageAnalysisService
-from models.responses import ImageAnalysisResponse, HealthResponse, InfoResponse
+from services.human_detection_service import HumanDetectionService
+from models.responses import ImageAnalysisResponse, HealthResponse, InfoResponse, HumanCountResponse
 
 # Configure logging
 logging.basicConfig(
@@ -29,13 +30,14 @@ logger = logging.getLogger(__name__)
 
 # Global service instance
 image_service: ImageAnalysisService = None
+human_detection_service: HumanDetectionService = None
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application lifespan manager - handles startup and shutdown"""
     # Startup
-    global image_service
+    global image_service, human_detection_service
     logger.info("Starting PyClass API...")
     logger.info("Loading AI models...")
     
@@ -45,6 +47,13 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.error(f"❌ Failed to load AI models: {e}")
         image_service = None
+    
+    try:
+        human_detection_service = HumanDetectionService()
+        logger.info("✅ Human detection model loaded successfully")
+    except Exception as e:
+        logger.error(f"❌ Failed to load human detection model: {e}")
+        human_detection_service = None
     
     yield
     
@@ -115,7 +124,8 @@ async def api_info() -> InfoResponse:
             "GET /": "Welcome message",
             "GET /health": "Health check",
             "GET /api/info": "API information",
-            "POST /seeImageAiInfo": "Image analysis with AI and OCR"
+            "POST /seeImageAiInfo": "Image analysis with AI and OCR",
+            "POST /checkHumansCount": "Count humans in image"
         }
     )
 
@@ -183,6 +193,76 @@ async def analyze_image(file: UploadFile = File(...)) -> ImageAnalysisResponse:
         raise
     except Exception as e:
         logger.error(f"Error processing image {file.filename}: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error processing image: {str(e)}"
+        )
+    finally:
+        await file.close()
+
+
+@app.post("/checkHumansCount", response_model=HumanCountResponse, tags=["Image Analysis"])
+async def check_humans_count(file: UploadFile = File(...)) -> HumanCountResponse:
+    """
+    Count humans in an uploaded image using AI object detection
+    
+    This endpoint:
+    1. Validates the uploaded image
+    2. Detects all humans in the image using YOLOv8
+    3. Returns the count of detected humans
+    
+    Args:
+        file: Uploaded image file (JPG, PNG, WEBP, GIF, BMP)
+    
+    Returns:
+        HumanCountResponse with count of humans (0 if none detected)
+    
+    Raises:
+        HTTPException: 
+            - 503 if detection model is not available
+            - 400 if file type is invalid or file is too large
+            - 500 if processing fails
+    """
+    # Check if service is ready
+    if human_detection_service is None or not human_detection_service.is_ready():
+        logger.error("Human detection requested but service not ready")
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Human detection model not available. Server is still loading, please try again in a moment."
+        )
+    
+    # Validate file type
+    if not file.content_type or not file.content_type.startswith('image/'):
+        logger.warning(f"Invalid file type uploaded: {file.content_type}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid file type. Please upload an image file."
+        )
+    
+    try:
+        # Read file contents
+        contents = await file.read()
+        
+        # Check file size
+        file_size_mb = len(contents) / (1024 * 1024)
+        if file_size_mb > settings.max_file_size_mb:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"File too large. Maximum size: {settings.max_file_size_mb}MB"
+            )
+        
+        logger.info(f"Detecting humans in image: {file.filename} ({file_size_mb:.2f}MB)")
+        
+        # Count humans
+        result = await human_detection_service.count_humans(contents)
+        
+        logger.info(f"Successfully processed: {file.filename} - Found {result.humansCount} human(s)")
+        return result
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error detecting humans in {file.filename}: {e}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error processing image: {str(e)}"
