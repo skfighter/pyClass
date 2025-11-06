@@ -22,7 +22,7 @@ logger = logging.getLogger(__name__)
 class ImageAnalysisService:
     """Service for analyzing images with AI and OCR"""
     
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize the image analysis service with AI models"""
         self.processor: Optional[BlipProcessor] = None
         self.model: Optional[BlipForConditionalGeneration] = None

@@ -12,14 +12,19 @@ import logging
 from typing import Dict
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, File, UploadFile, HTTPException, status
+from fastapi import FastAPI, File, UploadFile, HTTPException, status, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import HTMLResponse
+from fastapi.staticfiles import StaticFiles
+from fastapi.templating import Jinja2Templates
 import uvicorn
 
 from config import settings
 from services.image_service import ImageAnalysisService
 from services.human_detection_service import HumanDetectionService
-from models.responses import ImageAnalysisResponse, HealthResponse, InfoResponse, HumanCountResponse
+from services.audio_service import AudioTranscriptionService
+from models.responses import ImageAnalysisResponse, HealthResponse, InfoResponse, HumanCountResponse, AudioTranscriptionResponse
+from utils.file_validation import validate_file_type, validate_file_size
 
 # Configure logging
 logging.basicConfig(
@@ -31,13 +36,14 @@ logger = logging.getLogger(__name__)
 # Global service instance
 image_service: ImageAnalysisService = None
 human_detection_service: HumanDetectionService = None
+audio_service: AudioTranscriptionService = None
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application lifespan manager - handles startup and shutdown"""
     # Startup
-    global image_service, human_detection_service
+    global image_service, human_detection_service, audio_service
     logger.info("Starting PyClass API...")
     logger.info("Loading AI models...")
     
@@ -55,6 +61,13 @@ async def lifespan(app: FastAPI):
         logger.error(f"❌ Failed to load human detection model: {e}")
         human_detection_service = None
     
+    try:
+        audio_service = AudioTranscriptionService(model_size="base")
+        logger.info("✅ Audio transcription model loaded successfully")
+    except Exception as e:
+        logger.error(f"❌ Failed to load audio transcription model: {e}")
+        audio_service = None
+    
     yield
     
     # Shutdown
@@ -69,6 +82,12 @@ app = FastAPI(
     lifespan=lifespan
 )
 
+# Mount static files
+app.mount("/static", StaticFiles(directory="static"), name="static")
+
+# Setup templates
+templates = Jinja2Templates(directory="templates")
+
 # Add CORS middleware
 app.add_middleware(
     CORSMiddleware,
@@ -79,19 +98,21 @@ app.add_middleware(
 )
 
 
-@app.get("/", response_model=Dict[str, str], tags=["General"])
-async def root() -> Dict[str, str]:
+@app.get("/", response_class=HTMLResponse, tags=["General"])
+async def root(request: Request):
     """
-    Root endpoint - Welcome message
+    Root endpoint - Serves the interactive web frontend
     
     Returns:
-        Dict with welcome message and status
+        HTML page with interactive demo of all API features
     """
-    return {
-        "message": f"Welcome to {settings.api_title}",
-        "status": "running",
-        "version": settings.api_version
-    }
+    return templates.TemplateResponse(
+        "index.html",
+        {
+            "request": request,
+            "version": settings.api_version
+        }
+    )
 
 
 @app.get("/health", response_model=HealthResponse, tags=["Health"])
@@ -125,7 +146,8 @@ async def api_info() -> InfoResponse:
             "GET /health": "Health check",
             "GET /api/info": "API information",
             "POST /seeImageAiInfo": "Image analysis with AI and OCR",
-            "POST /checkHumansCount": "Count humans in image"
+            "POST /checkHumansCount": "Count humans in image",
+            "POST /transcribeAudio": "Transcribe audio to text"
         }
     )
 
@@ -162,24 +184,15 @@ async def analyze_image(file: UploadFile = File(...)) -> ImageAnalysisResponse:
         )
     
     # Validate file type
-    if not file.content_type or not file.content_type.startswith('image/'):
-        logger.warning(f"Invalid file type uploaded: {file.content_type}")
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Invalid file type. Please upload an image file. Allowed: {', '.join(settings.allowed_extensions)}"
-        )
+    allowed_exts = [f".{ext}" for ext in settings.allowed_extensions]
+    validate_file_type(file, allowed_exts, "image")
     
     try:
         # Read file contents
         contents = await file.read()
         
-        # Check file size
-        file_size_mb = len(contents) / (1024 * 1024)
-        if file_size_mb > settings.max_file_size_mb:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"File too large. Maximum size: {settings.max_file_size_mb}MB"
-            )
+        # Validate file size
+        file_size_mb, _ = validate_file_size(contents, settings.max_file_size_mb, file.filename)
         
         logger.info(f"Processing image: {file.filename} ({file_size_mb:.2f}MB)")
         
@@ -232,24 +245,15 @@ async def check_humans_count(file: UploadFile = File(...)) -> HumanCountResponse
         )
     
     # Validate file type
-    if not file.content_type or not file.content_type.startswith('image/'):
-        logger.warning(f"Invalid file type uploaded: {file.content_type}")
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Invalid file type. Please upload an image file."
-        )
+    allowed_exts = [f".{ext}" for ext in settings.allowed_extensions]
+    validate_file_type(file, allowed_exts, "image")
     
     try:
         # Read file contents
         contents = await file.read()
         
-        # Check file size
-        file_size_mb = len(contents) / (1024 * 1024)
-        if file_size_mb > settings.max_file_size_mb:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"File too large. Maximum size: {settings.max_file_size_mb}MB"
-            )
+        # Validate file size
+        file_size_mb, _ = validate_file_size(contents, settings.max_file_size_mb, file.filename)
         
         logger.info(f"Detecting humans in image: {file.filename} ({file_size_mb:.2f}MB)")
         
@@ -266,6 +270,69 @@ async def check_humans_count(file: UploadFile = File(...)) -> HumanCountResponse
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error processing image: {str(e)}"
+        )
+    finally:
+        await file.close()
+
+
+@app.post("/transcribeAudio", response_model=AudioTranscriptionResponse, tags=["Audio Analysis"])
+async def transcribe_audio(file: UploadFile = File(...)) -> AudioTranscriptionResponse:
+    """
+    Transcribe uploaded audio file to text using AI
+    
+    This endpoint:
+    1. Validates the uploaded audio file
+    2. Extracts audio metadata (duration, sample rate, etc.)
+    3. Transcribes speech to text using OpenAI Whisper
+    4. Detects the language of the audio
+    5. Returns transcription and audio information
+    
+    Args:
+        file: Uploaded audio file (MP3, WAV, M4A, FLAC, OGG, etc.)
+    
+    Returns:
+        AudioTranscriptionResponse with transcription, language, and metadata
+    
+    Raises:
+        HTTPException: 
+            - 503 if transcription model is not available
+            - 400 if file type is invalid or file is too large
+            - 500 if processing fails
+    """
+    # Check if service is ready
+    if audio_service is None or not audio_service.is_ready():
+        logger.error("Audio transcription requested but service not ready")
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Audio transcription model not available. Server is still loading, please try again in a moment."
+        )
+    
+    # Validate file type
+    allowed_exts = [f".{ext}" for ext in settings.allowed_audio_extensions]
+    validate_file_type(file, allowed_exts, "audio")
+    
+    try:
+        # Read file contents
+        contents = await file.read()
+        
+        # Validate file size (audio files use larger limit)
+        file_size_mb, _ = validate_file_size(contents, settings.max_audio_size_mb, file.filename)
+        
+        logger.info(f"Transcribing audio: {file.filename} ({file_size_mb:.2f}MB)")
+        
+        # Transcribe audio
+        result = await audio_service.transcribe_audio(contents, file.filename)
+        
+        logger.info(f"Successfully transcribed: {file.filename} - Language: {result.language}")
+        return result
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error transcribing audio {file.filename}: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error processing audio: {str(e)}"
         )
     finally:
         await file.close()

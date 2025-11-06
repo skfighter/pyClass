@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 class HumanDetectionService:
     """Service for detecting and counting humans in images"""
     
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize the human detection service with YOLO model"""
         self.model: Optional[YOLO] = None
         self._load_model()

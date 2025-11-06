@@ -14,7 +14,6 @@ class Settings(BaseSettings):
     host: str = "0.0.0.0"
     port: int = 8000
     reload: bool = True  # Auto-reload on code changes (dev mode)
-    reload: bool = True
     
     # AI Model Configuration
     model_name: str = "Salesforce/blip-image-captioning-base"
@@ -23,7 +22,9 @@ class Settings(BaseSettings):
     
     # File Upload Limits
     max_file_size_mb: int = 10
+    max_audio_size_mb: int = 25
     allowed_extensions: List[str] = ["jpg", "jpeg", "png", "webp", "gif", "bmp"]
+    allowed_audio_extensions: List[str] = ["mp3", "wav", "m4a", "flac", "ogg", "aac", "wma"]
     
     # Logging
     log_level: str = "INFO"

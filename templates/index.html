@@ -1,0 +1,660 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PyClass API - AI Image Analysis Demo</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        header {
+            text-align: center;
+            color: white;
+            margin-bottom: 40px;
+        }
+
+        header h1 {
+            font-size: 3em;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+
+        header p {
+            font-size: 1.2em;
+            opacity: 0.9;
+        }
+
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 30px;
+            margin-bottom: 30px;
+        }
+
+        .feature-card {
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            transition: transform 0.3s ease;
+        }
+
+        .feature-card:hover {
+            transform: translateY(-5px);
+        }
+
+        .feature-card h2 {
+            color: #667eea;
+            margin-bottom: 15px;
+            font-size: 1.5em;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .feature-card p {
+            color: #666;
+            margin-bottom: 20px;
+            line-height: 1.6;
+        }
+
+        .upload-area {
+            border: 3px dashed #667eea;
+            border-radius: 10px;
+            padding: 30px;
+            text-align: center;
+            margin-bottom: 20px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .upload-area:hover {
+            background: #f8f9ff;
+            border-color: #764ba2;
+        }
+
+        .upload-area.dragover {
+            background: #f0f0ff;
+            border-color: #764ba2;
+        }
+
+        input[type="file"] {
+            display: none;
+        }
+
+        .upload-label {
+            display: block;
+            color: #667eea;
+            font-size: 1.1em;
+            font-weight: 600;
+        }
+
+        .btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            border-radius: 25px;
+            font-size: 1em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            width: 100%;
+        }
+
+        .btn:hover {
+            transform: scale(1.05);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: scale(1);
+        }
+
+        .result {
+            margin-top: 20px;
+            padding: 20px;
+            background: #f8f9ff;
+            border-radius: 10px;
+            display: none;
+        }
+
+        .result.show {
+            display: block;
+            animation: slideIn 0.3s ease;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .result h3 {
+            color: #667eea;
+            margin-bottom: 10px;
+        }
+
+        .result-content {
+            color: #333;
+            line-height: 1.6;
+        }
+
+        .preview-image {
+            max-width: 100%;
+            max-height: 300px;
+            margin: 15px 0;
+            border-radius: 10px;
+            display: none;
+        }
+
+        .preview-image.show {
+            display: block;
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            margin: 20px 0;
+        }
+
+        .loading.show {
+            display: block;
+        }
+
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .error {
+            background: #fee;
+            border-left: 4px solid #f44;
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 5px;
+            display: none;
+        }
+
+        .error.show {
+            display: block;
+        }
+
+        .success {
+            background: #efe;
+            border-left: 4px solid #4f4;
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 5px;
+        }
+
+        .icon {
+            font-size: 1.5em;
+        }
+
+        .human-count {
+            font-size: 3em;
+            color: #667eea;
+            font-weight: bold;
+            text-align: center;
+            margin: 20px 0;
+        }
+
+        .extracted-text {
+            background: white;
+            padding: 15px;
+            border-radius: 5px;
+            border: 1px solid #ddd;
+            white-space: pre-wrap;
+            font-family: 'Courier New', monospace;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        footer {
+            text-align: center;
+            color: white;
+            margin-top: 50px;
+            padding: 20px;
+            opacity: 0.8;
+        }
+
+        .api-docs-link {
+            background: rgba(255,255,255,0.2);
+            color: white;
+            padding: 10px 20px;
+            border-radius: 20px;
+            text-decoration: none;
+            display: inline-block;
+            margin: 10px;
+            transition: all 0.3s ease;
+        }
+
+        .api-docs-link:hover {
+            background: rgba(255,255,255,0.3);
+            transform: scale(1.05);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🚀 PyClass API Demo</h1>
+            <p>AI-Powered Image Analysis & OCR</p>
+            <div style="margin-top: 20px;">
+                <a href="/docs" class="api-docs-link">📚 API Documentation</a>
+                <a href="/redoc" class="api-docs-link">📖 ReDoc</a>
+            </div>
+        </header>
+
+        <div class="features-grid">
+            <!-- Feature 1: AI Image Analysis with OCR -->
+            <div class="feature-card">
+                <h2><span class="icon">🤖</span> AI Image Analysis + OCR</h2>
+                <p>Upload an image to get an AI-generated description and extract any text found in the image using advanced OCR.</p>
+                
+                <div class="upload-area" id="upload1" onclick="document.getElementById('file1').click()">
+                    <label class="upload-label">
+                        📁 Click or drag to upload image
+                    </label>
+                </div>
+                <input type="file" id="file1" accept="image/*">
+                
+                <img id="preview1" class="preview-image" alt="Preview">
+                
+                <button class="btn" id="analyze-btn" disabled>Analyze Image</button>
+                
+                <div class="loading" id="loading1">
+                    <div class="spinner"></div>
+                    <p>Analyzing image...</p>
+                </div>
+                
+                <div class="error" id="error1"></div>
+                
+                <div class="result" id="result1">
+                    <h3>📝 AI Description:</h3>
+                    <div class="result-content" id="description"></div>
+                    
+                    <div id="text-section" style="display: none; margin-top: 20px;">
+                        <h3>📄 Extracted Text:</h3>
+                        <div class="extracted-text" id="extracted-text"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Feature 2: Human Detection & Counting -->
+            <div class="feature-card">
+                <h2><span class="icon">👥</span> Human Detection</h2>
+                <p>Upload an image to detect and count the number of humans present using YOLOv8 AI object detection.</p>
+                
+                <div class="upload-area" id="upload2" onclick="document.getElementById('file2').click()">
+                    <label class="upload-label">
+                        📁 Click or drag to upload image
+                    </label>
+                </div>
+                <input type="file" id="file2" accept="image/*">
+                
+                <img id="preview2" class="preview-image" alt="Preview">
+                
+                <button class="btn" id="detect-btn" disabled>Detect Humans</button>
+                
+                <div class="loading" id="loading2">
+                    <div class="spinner"></div>
+                    <p>Detecting humans...</p>
+                </div>
+                
+                <div class="error" id="error2"></div>
+                
+                <div class="result" id="result2">
+                    <h3>👤 Humans Detected:</h3>
+                    <div class="human-count" id="human-count">0</div>
+                    <p style="text-align: center; color: #666;">
+                        <span id="human-text">No humans detected</span>
+                    </p>
+                </div>
+            </div>
+
+            <!-- Feature 3: Audio Transcription -->
+            <div class="feature-card">
+                <h2><span class="icon">🎤</span> Audio Transcription</h2>
+                <p>Upload an audio file to transcribe speech to text using AI. Supports MP3, WAV, M4A, FLAC, and more.</p>
+                
+                <div class="upload-area" id="upload3" onclick="document.getElementById('file3').click()">
+                    <label class="upload-label">
+                        🎵 Click or drag to upload audio
+                    </label>
+                </div>
+                <input type="file" id="file3" accept="audio/*,.mp3,.wav,.m4a,.flac,.ogg,.aac,.wma">
+                
+                <div id="audio-preview" style="display: none; margin: 15px 0;">
+                    <p style="color: #667eea; font-weight: 600;">Selected: <span id="audio-filename"></span></p>
+                </div>
+                
+                <button class="btn" id="transcribe-btn" disabled>Transcribe Audio</button>
+                
+                <div class="loading" id="loading3">
+                    <div class="spinner"></div>
+                    <p>Transcribing audio... This may take a moment.</p>
+                </div>
+                
+                <div class="error" id="error3"></div>
+                
+                <div class="result" id="result3">
+                    <h3>📝 Transcription:</h3>
+                    <div class="extracted-text" id="transcription-text"></div>
+                    
+                    <div style="margin-top: 15px; padding: 15px; background: white; border-radius: 5px;">
+                        <h4 style="color: #667eea; margin-bottom: 10px;">Audio Info:</h4>
+                        <p style="margin: 5px 0;"><strong>Language:</strong> <span id="audio-language"></span></p>
+                        <p style="margin: 5px 0;"><strong>Duration:</strong> <span id="audio-duration"></span> seconds</p>
+                        <p style="margin: 5px 0;"><strong>Sample Rate:</strong> <span id="audio-samplerate"></span> Hz</p>
+                        <p style="margin: 5px 0;"><strong>File Size:</strong> <span id="audio-filesize"></span> MB</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Feature 4: API Information -->
+            <div class="feature-card">
+                <h2><span class="icon">ℹ️</span> API Information</h2>
+                <p>View information about the PyClass API, available endpoints, and current system status.</p>
+                
+                <button class="btn" onclick="loadApiInfo()">Get API Info</button>
+                
+                <div class="loading" id="loading4">
+                    <div class="spinner"></div>
+                    <p>Loading...</p>
+                </div>
+                
+                <div class="result" id="result4">
+                    <div class="result-content" id="api-info"></div>
+                </div>
+            </div>
+        </div>
+
+        <footer>
+            <p>Built with ❤️ using FastAPI, BLIP AI, Tesseract OCR, YOLOv8 & Whisper</p>
+            <p style="font-size: 0.9em; margin-top: 10px;">Version {{ version }}</p>
+        </footer>
+    </div>
+
+    <script>
+        // Image Analysis Feature
+        const file1 = document.getElementById('file1');
+        const preview1 = document.getElementById('preview1');
+        const analyzeBtn = document.getElementById('analyze-btn');
+        const upload1 = document.getElementById('upload1');
+
+        file1.addEventListener('change', function() {
+            if (this.files && this.files[0]) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    preview1.src = e.target.result;
+                    preview1.classList.add('show');
+                    analyzeBtn.disabled = false;
+                };
+                reader.readAsDataURL(this.files[0]);
+            }
+        });
+
+        // Drag and drop for upload1
+        upload1.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            upload1.classList.add('dragover');
+        });
+
+        upload1.addEventListener('dragleave', () => {
+            upload1.classList.remove('dragover');
+        });
+
+        upload1.addEventListener('drop', (e) => {
+            e.preventDefault();
+            upload1.classList.remove('dragover');
+            file1.files = e.dataTransfer.files;
+            file1.dispatchEvent(new Event('change'));
+        });
+
+        analyzeBtn.addEventListener('click', async function() {
+            const formData = new FormData();
+            formData.append('file', file1.files[0]);
+
+            document.getElementById('loading1').classList.add('show');
+            document.getElementById('result1').classList.remove('show');
+            document.getElementById('error1').classList.remove('show');
+
+            try {
+                const response = await fetch('/seeImageAiInfo', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    document.getElementById('description').textContent = data.description;
+                    
+                    if (data.has_text && data.extracted_text.trim()) {
+                        document.getElementById('text-section').style.display = 'block';
+                        document.getElementById('extracted-text').textContent = data.extracted_text;
+                    } else {
+                        document.getElementById('text-section').style.display = 'none';
+                    }
+                    
+                    document.getElementById('result1').classList.add('show');
+                } else {
+                    throw new Error(data.detail || 'Analysis failed');
+                }
+            } catch (error) {
+                document.getElementById('error1').textContent = '❌ Error: ' + error.message;
+                document.getElementById('error1').classList.add('show');
+            } finally {
+                document.getElementById('loading1').classList.remove('show');
+            }
+        });
+
+        // Human Detection Feature
+        const file2 = document.getElementById('file2');
+        const preview2 = document.getElementById('preview2');
+        const detectBtn = document.getElementById('detect-btn');
+        const upload2 = document.getElementById('upload2');
+
+        file2.addEventListener('change', function() {
+            if (this.files && this.files[0]) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    preview2.src = e.target.result;
+                    preview2.classList.add('show');
+                    detectBtn.disabled = false;
+                };
+                reader.readAsDataURL(this.files[0]);
+            }
+        });
+
+        // Drag and drop for upload2
+        upload2.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            upload2.classList.add('dragover');
+        });
+
+        upload2.addEventListener('dragleave', () => {
+            upload2.classList.remove('dragover');
+        });
+
+        upload2.addEventListener('drop', (e) => {
+            e.preventDefault();
+            upload2.classList.remove('dragover');
+            file2.files = e.dataTransfer.files;
+            file2.dispatchEvent(new Event('change'));
+        });
+
+        detectBtn.addEventListener('click', async function() {
+            const formData = new FormData();
+            formData.append('file', file2.files[0]);
+
+            document.getElementById('loading2').classList.add('show');
+            document.getElementById('result2').classList.remove('show');
+            document.getElementById('error2').classList.remove('show');
+
+            try {
+                const response = await fetch('/checkHumansCount', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    const count = data.humansCount;
+                    document.getElementById('human-count').textContent = count;
+                    
+                    let text = '';
+                    if (count === 0) {
+                        text = 'No humans detected';
+                    } else if (count === 1) {
+                        text = '1 human detected';
+                    } else {
+                        text = count + ' humans detected';
+                    }
+                    document.getElementById('human-text').textContent = text;
+                    
+                    document.getElementById('result2').classList.add('show');
+                } else {
+                    throw new Error(data.detail || 'Detection failed');
+                }
+            } catch (error) {
+                document.getElementById('error2').textContent = '❌ Error: ' + error.message;
+                document.getElementById('error2').classList.add('show');
+            } finally {
+                document.getElementById('loading2').classList.remove('show');
+            }
+        });
+
+        // API Info Feature
+        async function loadApiInfo() {
+            document.getElementById('loading4').classList.add('show');
+            document.getElementById('result4').classList.remove('show');
+
+            try {
+                const response = await fetch('/api/info');
+                const data = await response.json();
+
+                let html = '<div class="success">';
+                html += '<h4>' + data.name + ' v' + data.version + '</h4>';
+                html += '<p>' + data.description + '</p>';
+                html += '</div>';
+                
+                html += '<h4 style="margin-top: 20px; color: #667eea;">Available Endpoints:</h4>';
+                html += '<ul style="list-style: none; padding: 0;">';
+                for (const [endpoint, desc] of Object.entries(data.endpoints)) {
+                    html += '<li style="padding: 8px; background: white; margin: 5px 0; border-radius: 5px;"><strong>' + endpoint + '</strong> - ' + desc + '</li>';
+                }
+                html += '</ul>';
+
+                document.getElementById('api-info').innerHTML = html;
+                document.getElementById('result4').classList.add('show');
+            } catch (error) {
+                document.getElementById('api-info').innerHTML = '<div class="error show">❌ Error loading API info</div>';
+            } finally {
+                document.getElementById('loading4').classList.remove('show');
+            }
+        }
+
+        // Audio Transcription Feature
+        const file3 = document.getElementById('file3');
+        const transcribeBtn = document.getElementById('transcribe-btn');
+        const upload3 = document.getElementById('upload3');
+
+        file3.addEventListener('change', function() {
+            if (this.files && this.files[0]) {
+                document.getElementById('audio-filename').textContent = this.files[0].name;
+                document.getElementById('audio-preview').style.display = 'block';
+                transcribeBtn.disabled = false;
+            }
+        });
+
+        // Drag and drop for upload3
+        upload3.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            upload3.classList.add('dragover');
+        });
+
+        upload3.addEventListener('dragleave', () => {
+            upload3.classList.remove('dragover');
+        });
+
+        upload3.addEventListener('drop', (e) => {
+            e.preventDefault();
+            upload3.classList.remove('dragover');
+            file3.files = e.dataTransfer.files;
+            file3.dispatchEvent(new Event('change'));
+        });
+
+        transcribeBtn.addEventListener('click', async function() {
+            const formData = new FormData();
+            formData.append('file', file3.files[0]);
+
+            document.getElementById('loading3').classList.add('show');
+            document.getElementById('result3').classList.remove('show');
+            document.getElementById('error3').classList.remove('show');
+
+            try {
+                const response = await fetch('/transcribeAudio', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    document.getElementById('transcription-text').textContent = data.transcription || 'No speech detected';
+                    document.getElementById('audio-language').textContent = data.language.toUpperCase();
+                    document.getElementById('audio-duration').textContent = data.duration_seconds;
+                    document.getElementById('audio-samplerate').textContent = data.audio_info.sample_rate.toLocaleString();
+                    document.getElementById('audio-filesize').textContent = data.audio_info.file_size_mb;
+                    
+                    document.getElementById('result3').classList.add('show');
+                } else {
+                    throw new Error(data.detail || 'Transcription failed');
+                }
+            } catch (error) {
+                document.getElementById('error3').textContent = '❌ Error: ' + error.message;
+                document.getElementById('error3').classList.add('show');
+            } finally {
+                document.getElementById('loading3').classList.remove('show');
+            }
+        });
+    </script>
+</body>
+</html>

@@ -4,7 +4,7 @@ API Response Models
 Pydantic models for type-safe API responses
 """
 
-from typing import Dict
+from typing import Dict, Any
 from pydantic import BaseModel, Field
 
 
@@ -114,5 +114,50 @@ class HumanCountResponse(BaseModel):
         json_schema_extra = {
             "example": {
                 "humansCount": 3
+            }
+        }
+
+
+class AudioTranscriptionResponse(BaseModel):
+    """Response model for audio transcription endpoint"""
+    
+    success: bool = Field(
+        ...,
+        description="Whether the transcription was successful"
+    )
+    transcription: str = Field(
+        ...,
+        description="Transcribed text from the audio file"
+    )
+    language: str = Field(
+        ...,
+        description="Detected language of the audio"
+    )
+    duration_seconds: float = Field(
+        ...,
+        description="Duration of the audio file in seconds"
+    )
+    audio_info: Dict[str, Any] = Field(
+        ...,
+        description="Additional audio file information"
+    )
+    filename: str = Field(
+        ...,
+        description="Original filename of the uploaded audio"
+    )
+    
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "success": True,
+                "transcription": "Hello, this is a sample audio transcription.",
+                "language": "en",
+                "duration_seconds": 5.2,
+                "audio_info": {
+                    "sample_rate": 16000,
+                    "channels": 1,
+                    "format": "mp3"
+                },
+                "filename": "sample.mp3"
             }
         }

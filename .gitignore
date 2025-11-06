@@ -74,3 +74,18 @@ test_*.jpeg
 # Logs
 *.log
 logs/
+/tmp/
+
+# AI Models (cached by transformers and ultralytics)
+~/.cache/
+.cache/
+models/
+*.pt
+!yolov8n.pt
+
+# Audio/Video test files
+*.mp3
+*.wav
+*.m4a
+*.flac
+*.ogg
