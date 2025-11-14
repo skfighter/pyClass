@@ -23,7 +23,7 @@ from config import settings
 from services.image_service import ImageAnalysisService
 from services.human_detection_service import HumanDetectionService
 from services.audio_service import AudioTranscriptionService
-from models.responses import ImageAnalysisResponse, HealthResponse, InfoResponse, HumanCountResponse, AudioTranscriptionResponse
+from models.responses import ImageAnalysisResponse, HealthResponse, InfoResponse, HumanCountResponse, AudioTranscriptionResponse, BlackAndWhiteResponse, BackgroundRemovalResponse
 from utils.file_validation import validate_file_type, validate_file_size
 
 # Configure logging
@@ -147,7 +147,9 @@ async def api_info() -> InfoResponse:
             "GET /api/info": "API information",
             "POST /seeImageAiInfo": "Image analysis with AI and OCR",
             "POST /checkHumansCount": "Count humans in image",
-            "POST /transcribeAudio": "Transcribe audio to text"
+            "POST /transcribeAudio": "Transcribe audio to text",
+            "POST /convertToBlackAndWhite": "Convert image to black and white",
+            "POST /removeBackground": "Remove background from image"
         }
     )
 
@@ -333,6 +335,142 @@ async def transcribe_audio(file: UploadFile = File(...)) -> AudioTranscriptionRe
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error processing audio: {str(e)}"
+        )
+    finally:
+        await file.close()
+
+
+@app.post("/removeBackground", response_model=BackgroundRemovalResponse, tags=["Image Processing"])
+async def remove_background(file: UploadFile = File(...)) -> BackgroundRemovalResponse:
+    """
+    Remove background from uploaded image
+    
+    This endpoint:
+    1. Validates the uploaded image
+    2. Uses AI to detect and remove the background
+    3. Returns the image with transparent background as base64 encoded PNG
+    4. Includes image metadata (dimensions, size)
+    
+    Args:
+        file: Uploaded image file (JPG, PNG, WEBP, GIF, BMP)
+    
+    Returns:
+        BackgroundRemovalResponse with base64 encoded transparent PNG and metadata
+    
+    Raises:
+        HTTPException: 
+            - 503 if image service is not available
+            - 400 if file type is invalid or file is too large
+            - 500 if processing fails
+    """
+    # Check if service is ready
+    if image_service is None or not image_service.is_ready():
+        logger.error("Background removal requested but service not ready")
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Image service not available. Server is still loading, please try again in a moment."
+        )
+    
+    # Validate file type
+    allowed_exts = [f".{ext}" for ext in settings.allowed_extensions]
+    validate_file_type(file, allowed_exts, "image")
+    
+    try:
+        # Read file contents
+        contents = await file.read()
+        
+        # Validate file size
+        file_size_mb, _ = validate_file_size(contents, settings.max_file_size_mb, file.filename)
+        
+        logger.info(f"Removing background from: {file.filename} ({file_size_mb:.2f}MB)")
+        
+        # Remove background
+        result = await image_service.remove_background(contents, file.filename)
+        
+        logger.info(f"Successfully removed background: {file.filename}")
+        
+        return BackgroundRemovalResponse(
+            success=True,
+            filename=file.filename,
+            no_bg_image_base64=result["no_bg_image_base64"],
+            image_info=result["image_info"]
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error removing background from {file.filename}: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error processing image: {str(e)}"
+        )
+    finally:
+        await file.close()
+
+
+@app.post("/convertToBlackAndWhite", response_model=BlackAndWhiteResponse, tags=["Image Processing"])
+async def convert_to_black_and_white(file: UploadFile = File(...)) -> BlackAndWhiteResponse:
+    """
+    Convert uploaded image to black and white (grayscale)
+    
+    This endpoint:
+    1. Validates the uploaded image
+    2. Converts the image to grayscale (black and white)
+    3. Returns the converted image as base64 encoded data URL for easy display
+    4. Includes image metadata (dimensions, format, size)
+    
+    Args:
+        file: Uploaded image file (JPG, PNG, WEBP, GIF, BMP)
+    
+    Returns:
+        BlackAndWhiteResponse with base64 encoded B&W image and metadata
+    
+    Raises:
+        HTTPException: 
+            - 503 if image service is not available
+            - 400 if file type is invalid or file is too large
+            - 500 if processing fails
+    """
+    # Check if service is ready
+    if image_service is None or not image_service.is_ready():
+        logger.error("Image conversion requested but service not ready")
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Image service not available. Server is still loading, please try again in a moment."
+        )
+    
+    # Validate file type
+    allowed_exts = [f".{ext}" for ext in settings.allowed_extensions]
+    validate_file_type(file, allowed_exts, "image")
+    
+    try:
+        # Read file contents
+        contents = await file.read()
+        
+        # Validate file size
+        file_size_mb, _ = validate_file_size(contents, settings.max_file_size_mb, file.filename)
+        
+        logger.info(f"Converting to black and white: {file.filename} ({file_size_mb:.2f}MB)")
+        
+        # Convert to black and white
+        result = await image_service.convert_to_black_and_white(contents, file.filename)
+        
+        logger.info(f"Successfully converted: {file.filename}")
+        
+        return BlackAndWhiteResponse(
+            success=True,
+            filename=file.filename,
+            bw_image_base64=result["bw_image_base64"],
+            image_info=result["image_info"]
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error converting image {file.filename}: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error processing image: {str(e)}"
         )
     finally:
         await file.close()

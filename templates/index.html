@@ -386,19 +386,97 @@
                 </div>
             </div>
 
-            <!-- Feature 4: API Information -->
+            <!-- Feature 4: Black & White Conversion -->
+            <div class="feature-card">
+                <h2><span class="icon">🎨</span> Black & White Converter</h2>
+                <p>Upload an image to convert it to black and white (grayscale). Perfect for artistic effects!</p>
+                
+                <div class="upload-area" id="upload4" onclick="document.getElementById('file4').click()">
+                    <label class="upload-label">
+                        📁 Click or drag to upload image
+                    </label>
+                </div>
+                <input type="file" id="file4" accept="image/*">
+                
+                <img id="preview4" class="preview-image" alt="Preview">
+                
+                <button class="btn" id="convert-btn" disabled>Convert to B&W</button>
+                
+                <div class="loading" id="loading4">
+                    <div class="spinner"></div>
+                    <p>Converting image...</p>
+                </div>
+                
+                <div class="error" id="error4"></div>
+                
+                <div class="result" id="result4">
+                    <h3>⚫⚪ Black & White Result:</h3>
+                    <img id="bw-result" class="preview-image show" alt="Black and White" style="border: 2px solid #667eea;">
+                    
+                    <div style="margin-top: 15px; padding: 15px; background: white; border-radius: 5px;">
+                        <h4 style="color: #667eea; margin-bottom: 10px;">Image Info:</h4>
+                        <p style="margin: 5px 0;"><strong>Dimensions:</strong> <span id="bw-dimensions"></span></p>
+                        <p style="margin: 5px 0;"><strong>Format:</strong> <span id="bw-format"></span></p>
+                        <p style="margin: 5px 0;"><strong>Size:</strong> <span id="bw-size"></span></p>
+                    </div>
+                    
+                    <button class="btn" style="margin-top: 15px;" onclick="downloadBW()">⬇️ Download B&W Image</button>
+                </div>
+            </div>
+
+            <!-- Feature 5: Background Removal -->
+            <div class="feature-card">
+                <h2><span class="icon">✂️</span> Background Remover</h2>
+                <p>Upload an image to automatically remove its background using AI. Great for product photos and portraits!</p>
+                
+                <div class="upload-area" id="upload6" onclick="document.getElementById('file6').click()">
+                    <label class="upload-label">
+                        📁 Click or drag to upload image
+                    </label>
+                </div>
+                <input type="file" id="file6" accept="image/*">
+                
+                <img id="preview6" class="preview-image" alt="Preview">
+                
+                <button class="btn" id="remove-bg-btn" disabled>Remove Background</button>
+                
+                <div class="loading" id="loading6">
+                    <div class="spinner"></div>
+                    <p>Removing background... This may take a moment.</p>
+                </div>
+                
+                <div class="error" id="error6"></div>
+                
+                <div class="result" id="result6">
+                    <h3>✨ Result (Transparent Background):</h3>
+                    <div style="background: repeating-conic-gradient(#ddd 0% 25%, white 0% 50%) 50% / 20px 20px; padding: 20px; border-radius: 10px; margin: 15px 0;">
+                        <img id="no-bg-result" class="preview-image show" alt="No Background" style="border: none;">
+                    </div>
+                    
+                    <div style="margin-top: 15px; padding: 15px; background: white; border-radius: 5px;">
+                        <h4 style="color: #667eea; margin-bottom: 10px;">Image Info:</h4>
+                        <p style="margin: 5px 0;"><strong>Dimensions:</strong> <span id="no-bg-dimensions"></span></p>
+                        <p style="margin: 5px 0;"><strong>Format:</strong> <span id="no-bg-format"></span> (with transparency)</p>
+                        <p style="margin: 5px 0;"><strong>Size:</strong> <span id="no-bg-size"></span></p>
+                    </div>
+                    
+                    <button class="btn" style="margin-top: 15px;" onclick="downloadNoBG()">⬇️ Download PNG</button>
+                </div>
+            </div>
+
+            <!-- Feature 6: API Information -->
             <div class="feature-card">
                 <h2><span class="icon">ℹ️</span> API Information</h2>
                 <p>View information about the PyClass API, available endpoints, and current system status.</p>
                 
                 <button class="btn" onclick="loadApiInfo()">Get API Info</button>
                 
-                <div class="loading" id="loading4">
+                <div class="loading" id="loading5">
                     <div class="spinner"></div>
                     <p>Loading...</p>
                 </div>
                 
-                <div class="result" id="result4">
+                <div class="result" id="result5">
                     <div class="result-content" id="api-info"></div>
                 </div>
             </div>
@@ -563,8 +641,8 @@
 
         // API Info Feature
         async function loadApiInfo() {
-            document.getElementById('loading4').classList.add('show');
-            document.getElementById('result4').classList.remove('show');
+            document.getElementById('loading5').classList.add('show');
+            document.getElementById('result5').classList.remove('show');
 
             try {
                 const response = await fetch('/api/info');
@@ -583,12 +661,188 @@
                 html += '</ul>';
 
                 document.getElementById('api-info').innerHTML = html;
-                document.getElementById('result4').classList.add('show');
+                document.getElementById('result5').classList.add('show');
             } catch (error) {
                 document.getElementById('api-info').innerHTML = '<div class="error show">❌ Error loading API info</div>';
             } finally {
+                document.getElementById('loading5').classList.remove('show');
+            }
+        }
+
+        // Black & White Conversion Feature
+        const file4 = document.getElementById('file4');
+        const preview4 = document.getElementById('preview4');
+        const convertBtn = document.getElementById('convert-btn');
+        const upload4 = document.getElementById('upload4');
+        let bwImageData = null;
+
+        file4.addEventListener('change', function() {
+            if (this.files && this.files[0]) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    preview4.src = e.target.result;
+                    preview4.classList.add('show');
+                    convertBtn.disabled = false;
+                };
+                reader.readAsDataURL(this.files[0]);
+            }
+        });
+
+        // Drag and drop for upload4
+        upload4.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            upload4.classList.add('dragover');
+        });
+
+        upload4.addEventListener('dragleave', () => {
+            upload4.classList.remove('dragover');
+        });
+
+        upload4.addEventListener('drop', (e) => {
+            e.preventDefault();
+            upload4.classList.remove('dragover');
+            file4.files = e.dataTransfer.files;
+            file4.dispatchEvent(new Event('change'));
+        });
+
+        convertBtn.addEventListener('click', async function() {
+            const formData = new FormData();
+            formData.append('file', file4.files[0]);
+
+            document.getElementById('loading4').classList.add('show');
+            document.getElementById('result4').classList.remove('show');
+            document.getElementById('error4').classList.remove('show');
+
+            try {
+                const response = await fetch('/convertToBlackAndWhite', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    // Display the B&W image
+                    document.getElementById('bw-result').src = data.bw_image_base64;
+                    bwImageData = data.bw_image_base64;
+                    
+                    // Display image info
+                    document.getElementById('bw-dimensions').textContent = 
+                        data.image_info.width + ' x ' + data.image_info.height + ' pixels';
+                    document.getElementById('bw-format').textContent = data.image_info.format;
+                    document.getElementById('bw-size').textContent = 
+                        (data.image_info.size_bytes / 1024).toFixed(2) + ' KB';
+                    
+                    document.getElementById('result4').classList.add('show');
+                } else {
+                    throw new Error(data.detail || 'Conversion failed');
+                }
+            } catch (error) {
+                document.getElementById('error4').textContent = '❌ Error: ' + error.message;
+                document.getElementById('error4').classList.add('show');
+            } finally {
                 document.getElementById('loading4').classList.remove('show');
             }
+        });
+
+        // Download B&W image
+        function downloadBW() {
+            if (!bwImageData) return;
+            
+            const link = document.createElement('a');
+            link.href = bwImageData;
+            link.download = 'blackandwhite_' + new Date().getTime() + '.png';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        // Background Removal Feature
+        const file6 = document.getElementById('file6');
+        const preview6 = document.getElementById('preview6');
+        const removeBgBtn = document.getElementById('remove-bg-btn');
+        const upload6 = document.getElementById('upload6');
+        let noBgImageData = null;
+
+        file6.addEventListener('change', function() {
+            if (this.files && this.files[0]) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    preview6.src = e.target.result;
+                    preview6.classList.add('show');
+                    removeBgBtn.disabled = false;
+                };
+                reader.readAsDataURL(this.files[0]);
+            }
+        });
+
+        // Drag and drop for upload6
+        upload6.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            upload6.classList.add('dragover');
+        });
+
+        upload6.addEventListener('dragleave', () => {
+            upload6.classList.remove('dragover');
+        });
+
+        upload6.addEventListener('drop', (e) => {
+            e.preventDefault();
+            upload6.classList.remove('dragover');
+            file6.files = e.dataTransfer.files;
+            file6.dispatchEvent(new Event('change'));
+        });
+
+        removeBgBtn.addEventListener('click', async function() {
+            const formData = new FormData();
+            formData.append('file', file6.files[0]);
+
+            document.getElementById('loading6').classList.add('show');
+            document.getElementById('result6').classList.remove('show');
+            document.getElementById('error6').classList.remove('show');
+
+            try {
+                const response = await fetch('/removeBackground', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    // Display the no-background image
+                    document.getElementById('no-bg-result').src = data.no_bg_image_base64;
+                    noBgImageData = data.no_bg_image_base64;
+                    
+                    // Display image info
+                    document.getElementById('no-bg-dimensions').textContent = 
+                        data.image_info.width + ' x ' + data.image_info.height + ' pixels';
+                    document.getElementById('no-bg-format').textContent = data.image_info.format;
+                    document.getElementById('no-bg-size').textContent = 
+                        (data.image_info.size_bytes / 1024).toFixed(2) + ' KB';
+                    
+                    document.getElementById('result6').classList.add('show');
+                } else {
+                    throw new Error(data.detail || 'Background removal failed');
+                }
+            } catch (error) {
+                document.getElementById('error6').textContent = '❌ Error: ' + error.message;
+                document.getElementById('error6').classList.add('show');
+            } finally {
+                document.getElementById('loading6').classList.remove('show');
+            }
+        });
+
+        // Download no-background image
+        function downloadNoBG() {
+            if (!noBgImageData) return;
+            
+            const link = document.createElement('a');
+            link.href = noBgImageData;
+            link.download = 'no_background_' + new Date().getTime() + '.png';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
         }
 
         // Audio Transcription Feature

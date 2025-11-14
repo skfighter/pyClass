@@ -5,6 +5,7 @@ Handles AI-powered image description and OCR text extraction
 """
 
 import logging
+import base64
 from io import BytesIO
 from typing import Optional
 
@@ -12,6 +13,7 @@ import torch
 from PIL import Image
 from transformers import BlipProcessor, BlipForConditionalGeneration
 import pytesseract
+from rembg import remove
 
 from config import settings
 from models.responses import ImageAnalysisResponse
@@ -148,3 +150,120 @@ class ImageAnalysisService:
         except Exception as e:
             logger.error(f"Error extracting text from image: {e}")
             return f"Error: OCR failed - {str(e)}"
+    
+    async def convert_to_black_and_white(self, image_bytes: bytes, filename: str) -> dict:
+        """
+        Convert image to black and white (grayscale)
+        
+        Args:
+            image_bytes: Raw image file bytes
+            filename: Original filename for logging
+        
+        Returns:
+            Dictionary with base64 encoded black and white image and metadata
+        
+        Raises:
+            Exception: If image processing fails
+        """
+        import base64
+        
+        try:
+            # Open image from bytes
+            image = Image.open(BytesIO(image_bytes))
+            
+            # Store original info
+            original_format = image.format
+            width, height = image.size
+            
+            # Convert to grayscale (black and white)
+            bw_image = image.convert('L')
+            
+            # Save to bytes buffer
+            output_buffer = BytesIO()
+            # Use JPEG for efficient encoding, PNG for lossless
+            save_format = 'JPEG' if original_format in ['JPEG', 'JPG'] else 'PNG'
+            bw_image.save(output_buffer, format=save_format, quality=95)
+            output_buffer.seek(0)
+            
+            # Convert to base64
+            bw_bytes = output_buffer.getvalue()
+            bw_base64 = base64.b64encode(bw_bytes).decode('utf-8')
+            
+            # Create data URL for easy display in browser
+            mime_type = f"image/{save_format.lower()}"
+            data_url = f"data:{mime_type};base64,{bw_base64}"
+            
+            logger.info(f"Converted {filename} to black and white - {width}x{height}")
+            
+            return {
+                "bw_image_base64": data_url,
+                "image_info": {
+                    "width": width,
+                    "height": height,
+                    "format": save_format,
+                    "mode": "L",  # L = grayscale
+                    "size_bytes": len(bw_bytes)
+                }
+            }
+            
+        except Exception as e:
+            logger.error(f"Error converting image to black and white: {e}")
+            raise
+    
+    async def remove_background(self, image_bytes: bytes, filename: str) -> dict:
+        """
+        Remove background from image
+        
+        Args:
+            image_bytes: Raw image file bytes
+            filename: Original filename for logging
+        
+        Returns:
+            Dictionary with base64 encoded image (transparent background) and metadata
+        
+        Raises:
+            Exception: If background removal fails
+        """
+        try:
+            # Open image from bytes
+            image = Image.open(BytesIO(image_bytes))
+            
+            # Store original info
+            width, height = image.size
+            
+            logger.info(f"Removing background from {filename} - {width}x{height}")
+            
+            # Remove background using rembg
+            output_bytes = remove(image_bytes)
+            
+            # Open the result as PIL Image
+            output_image = Image.open(BytesIO(output_bytes))
+            
+            # Save to bytes buffer as PNG (to preserve transparency)
+            output_buffer = BytesIO()
+            output_image.save(output_buffer, format='PNG')
+            output_buffer.seek(0)
+            
+            # Convert to base64
+            no_bg_bytes = output_buffer.getvalue()
+            no_bg_base64 = base64.b64encode(no_bg_bytes).decode('utf-8')
+            
+            # Create data URL for easy display in browser
+            data_url = f"data:image/png;base64,{no_bg_base64}"
+            
+            logger.info(f"Background removed from {filename} - Output size: {len(no_bg_bytes)} bytes")
+            
+            return {
+                "no_bg_image_base64": data_url,
+                "image_info": {
+                    "width": width,
+                    "height": height,
+                    "format": "PNG",
+                    "mode": "RGBA",  # RGBA = with alpha channel (transparency)
+                    "size_bytes": len(no_bg_bytes)
+                }
+            }
+            
+        except Exception as e:
+            logger.error(f"Error removing background from image: {e}")
+            raise

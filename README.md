@@ -10,11 +10,13 @@ A powerful, production-ready FastAPI server that provides AI-powered image analy
 
 
 
-- 🖼️ **AI Image Description** - Automatically describes image content using the BLIP AI model## FastAPI Server
+- 🖼️ **AI Image Description** - Automatically describes image content using the BLIP AI model
 
 - 📝 **OCR Text Extraction** - Extracts text from images using Tesseract OCR
 
-- 🚀 **Fast & Modern** - Built with FastAPI for high performance and async support## Features
+- 🎨 **Black & White Conversion** - Convert images to black and white (grayscale)
+
+- 🚀 **Fast & Modern** - Built with FastAPI for high performance and async support
 
 - 🔄 **Auto-reload** - Development server with hot reload
 

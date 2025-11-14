@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Black & White Image Converter - Demo</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 900px;
+            margin: 50px auto;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #333;
+        }
+        .container {
+            background: white;
+            padding: 40px;
+            border-radius: 15px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+        }
+        h1 {
+            color: #667eea;
+            text-align: center;
+            margin-bottom: 10px;
+        }
+        .subtitle {
+            text-align: center;
+            color: #666;
+            margin-bottom: 30px;
+        }
+        .upload-area {
+            border: 3px dashed #667eea;
+            padding: 40px;
+            text-align: center;
+            border-radius: 10px;
+            margin-bottom: 30px;
+            background: #f8f9fa;
+        }
+        input[type="file"] {
+            margin: 20px 0;
+        }
+        button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            font-size: 16px;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+        button:hover {
+            transform: scale(1.05);
+        }
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        .results {
+            display: none;
+            margin-top: 30px;
+        }
+        .image-comparison {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-top: 20px;
+        }
+        .image-box {
+            text-align: center;
+        }
+        .image-box h3 {
+            color: #667eea;
+            margin-bottom: 10px;
+        }
+        .image-box img {
+            max-width: 100%;
+            border-radius: 10px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+        .info {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 10px;
+            font-size: 14px;
+            text-align: left;
+        }
+        .loading {
+            display: none;
+            text-align: center;
+            margin: 20px 0;
+        }
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .error {
+            background: #ffe6e6;
+            border: 1px solid #ff4444;
+            color: #cc0000;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 20px;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎨 Black & White Image Converter</h1>
+        <p class="subtitle">Convert your color images to beautiful black and white</p>
+        
+        <div class="upload-area">
+            <p>📁 Choose an image to convert</p>
+            <input type="file" id="imageInput" accept="image/*">
+            <br>
+            <button id="convertBtn" onclick="convertImage()" disabled>Convert to Black & White</button>
+        </div>
+
+        <div class="loading" id="loading">
+            <div class="spinner"></div>
+            <p>Converting your image...</p>
+        </div>
+
+        <div class="error" id="error"></div>
+
+        <div class="results" id="results">
+            <h2>Conversion Results</h2>
+            <div class="image-comparison">
+                <div class="image-box">
+                    <h3>Original Image</h3>
+                    <img id="originalImage" alt="Original">
+                    <div class="info" id="originalInfo"></div>
+                </div>
+                <div class="image-box">
+                    <h3>Black & White</h3>
+                    <img id="bwImage" alt="Black and White">
+                    <div class="info" id="bwInfo"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const imageInput = document.getElementById('imageInput');
+        const convertBtn = document.getElementById('convertBtn');
+        const loading = document.getElementById('loading');
+        const results = document.getElementById('results');
+        const errorDiv = document.getElementById('error');
+
+        imageInput.addEventListener('change', function() {
+            convertBtn.disabled = !this.files || this.files.length === 0;
+        });
+
+        async function convertImage() {
+            const file = imageInput.files[0];
+            if (!file) return;
+
+            // Show loading, hide results and errors
+            loading.style.display = 'block';
+            results.style.display = 'none';
+            errorDiv.style.display = 'none';
+            convertBtn.disabled = true;
+
+            // Show original image
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                document.getElementById('originalImage').src = e.target.result;
+            };
+            reader.readAsDataURL(file);
+
+            // Prepare form data
+            const formData = new FormData();
+            formData.append('file', file);
+
+            try {
+                // Call API
+                const response = await fetch('http://localhost:8000/convertToBlackAndWhite', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                const data = await response.json();
+
+                // Display results
+                document.getElementById('bwImage').src = data.bw_image_base64;
+                
+                // Display info
+                document.getElementById('originalInfo').innerHTML = `
+                    <strong>Filename:</strong> ${file.name}<br>
+                    <strong>Size:</strong> ${(file.size / 1024).toFixed(2)} KB<br>
+                    <strong>Type:</strong> ${file.type}
+                `;
+
+                document.getElementById('bwInfo').innerHTML = `
+                    <strong>Dimensions:</strong> ${data.image_info.width} × ${data.image_info.height}<br>
+                    <strong>Size:</strong> ${(data.image_info.size_bytes / 1024).toFixed(2)} KB<br>
+                    <strong>Format:</strong> ${data.image_info.format}<br>
+                    <strong>Mode:</strong> Grayscale (${data.image_info.mode})
+                `;
+
+                // Show results
+                loading.style.display = 'none';
+                results.style.display = 'block';
+                convertBtn.disabled = false;
+
+            } catch (error) {
+                console.error('Error:', error);
+                errorDiv.textContent = '❌ Error converting image: ' + error.message;
+                errorDiv.style.display = 'block';
+                loading.style.display = 'none';
+                convertBtn.disabled = false;
+            }
+        }
+    </script>
+</body>
+</html>

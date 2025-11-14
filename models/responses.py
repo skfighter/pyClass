@@ -161,3 +161,77 @@ class AudioTranscriptionResponse(BaseModel):
                 "filename": "sample.mp3"
             }
         }
+
+
+class BlackAndWhiteResponse(BaseModel):
+    """Response model for black and white conversion endpoint"""
+    
+    success: bool = Field(
+        ...,
+        description="Whether the conversion was successful"
+    )
+    filename: str = Field(
+        ...,
+        description="Original filename of the uploaded image"
+    )
+    bw_image_base64: str = Field(
+        ...,
+        description="Base64 encoded black and white image (data URL format)"
+    )
+    image_info: Dict[str, Any] = Field(
+        ...,
+        description="Image metadata (width, height, format, etc.)"
+    )
+    
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "success": True,
+                "filename": "photo.jpg",
+                "bw_image_base64": "data:image/jpeg;base64,/9j/4AAQSkZJRg...",
+                "image_info": {
+                    "width": 800,
+                    "height": 600,
+                    "format": "JPEG",
+                    "mode": "L",
+                    "size_bytes": 45678
+                }
+            }
+        }
+
+
+class BackgroundRemovalResponse(BaseModel):
+    """Response model for background removal endpoint"""
+    
+    success: bool = Field(
+        ...,
+        description="Whether the background removal was successful"
+    )
+    filename: str = Field(
+        ...,
+        description="Original filename of the uploaded image"
+    )
+    no_bg_image_base64: str = Field(
+        ...,
+        description="Base64 encoded image with background removed (data URL format with transparent background)"
+    )
+    image_info: Dict[str, Any] = Field(
+        ...,
+        description="Image metadata (width, height, format, etc.)"
+    )
+    
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "success": True,
+                "filename": "person.jpg",
+                "no_bg_image_base64": "data:image/png;base64,iVBORw0KGgoAAAANSUh...",
+                "image_info": {
+                    "width": 800,
+                    "height": 600,
+                    "format": "PNG",
+                    "mode": "RGBA",
+                    "size_bytes": 125678
+                }
+            }
+        }
