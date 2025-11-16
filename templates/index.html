@@ -464,7 +464,90 @@
                 </div>
             </div>
 
-            <!-- Feature 6: API Information -->
+            <!-- Feature 6: Color Extraction -->
+            <div class="feature-card">
+                <h2><span class="icon">🎨</span> Color Extractor</h2>
+                <p>Upload an image to extract its dominant colors. Get RGB, HEX values, percentages, and color names!</p>
+                
+                <div class="upload-area" id="upload7" onclick="document.getElementById('file7').click()">
+                    <label class="upload-label">
+                        📁 Click or drag to upload image
+                    </label>
+                </div>
+                <input type="file" id="file7" accept="image/*">
+                
+                <img id="preview7" class="preview-image" alt="Preview">
+                
+                <div style="margin: 15px 0;">
+                    <label for="num-colors" style="display: block; margin-bottom: 5px; color: #667eea; font-weight: bold;">Number of Colors:</label>
+                    <input type="range" id="num-colors" min="3" max="15" value="10" style="width: 100%;">
+                    <span id="num-colors-value" style="color: #667eea; font-weight: bold;">10</span>
+                </div>
+                
+                <button class="btn" id="extract-colors-btn" disabled>Extract Colors</button>
+                
+                <div class="loading" id="loading7">
+                    <div class="spinner"></div>
+                    <p>Analyzing colors...</p>
+                </div>
+                
+                <div class="error" id="error7"></div>
+                
+                <div class="result" id="result7">
+                    <h3>🎨 Extracted Colors:</h3>
+                    <div id="colors-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 15px; margin: 20px 0;"></div>
+                    
+                    <div style="margin-top: 15px; padding: 15px; background: white; border-radius: 5px;">
+                        <h4 style="color: #667eea; margin-bottom: 10px;">Image Info:</h4>
+                        <p style="margin: 5px 0;"><strong>Dimensions:</strong> <span id="colors-dimensions"></span></p>
+                        <p style="margin: 5px 0;"><strong>Total Pixels:</strong> <span id="colors-pixels"></span></p>
+                        <p style="margin: 5px 0;"><strong>Colors Found:</strong> <span id="colors-count"></span></p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Feature 7: Face Detection -->
+            <div class="feature-card">
+                <h2><span class="icon">👤</span> Face Detector</h2>
+                <p>Upload an image to detect human faces and mark them with red circles. Perfect for group photos!</p>
+                
+                <div class="upload-area" id="upload8" onclick="document.getElementById('file8').click()">
+                    <label class="upload-label">
+                        📁 Click or drag to upload image
+                    </label>
+                </div>
+                <input type="file" id="file8" accept="image/*">
+                
+                <img id="preview8" class="preview-image" alt="Preview">
+                
+                <button class="btn" id="detect-faces-btn" disabled>Detect Faces</button>
+                
+                <div class="loading" id="loading8">
+                    <div class="spinner"></div>
+                    <p>Detecting faces...</p>
+                </div>
+                
+                <div class="error" id="error8"></div>
+                
+                <div class="result" id="result8">
+                    <h3>👤 Detected Faces:</h3>
+                    <div class="human-count" id="face-count">0</div>
+                    <p style="text-align: center; color: #667eea; font-size: 1.2em; margin-bottom: 20px;">Face(s) Found</p>
+                    
+                    <img id="faces-result" class="preview-image show" alt="Faces Marked" style="border: 3px solid #f44;">
+                    
+                    <div style="margin-top: 15px; padding: 15px; background: white; border-radius: 5px;">
+                        <h4 style="color: #667eea; margin-bottom: 10px;">Image Info:</h4>
+                        <p style="margin: 5px 0;"><strong>Dimensions:</strong> <span id="faces-dimensions"></span></p>
+                        <p style="margin: 5px 0;"><strong>Format:</strong> <span id="faces-format"></span></p>
+                        <p style="margin: 5px 0;"><strong>Size:</strong> <span id="faces-size"></span></p>
+                    </div>
+                    
+                    <button class="btn" style="margin-top: 15px;" onclick="downloadFaces()">⬇️ Download Marked Image</button>
+                </div>
+            </div>
+
+            <!-- Feature 8: API Information -->
             <div class="feature-card">
                 <h2><span class="icon">ℹ️</span> API Information</h2>
                 <p>View information about the PyClass API, available endpoints, and current system status.</p>
@@ -909,6 +992,216 @@
                 document.getElementById('loading3').classList.remove('show');
             }
         });
+
+        // Color Extraction Feature
+        const file7 = document.getElementById('file7');
+        const preview7 = document.getElementById('preview7');
+        const extractColorsBtn = document.getElementById('extract-colors-btn');
+        const upload7 = document.getElementById('upload7');
+        const numColorsSlider = document.getElementById('num-colors');
+        const numColorsValue = document.getElementById('num-colors-value');
+
+        // Update slider value display
+        numColorsSlider.addEventListener('input', function() {
+            numColorsValue.textContent = this.value;
+        });
+
+        file7.addEventListener('change', function() {
+            if (this.files && this.files[0]) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    preview7.src = e.target.result;
+                    preview7.classList.add('show');
+                };
+                reader.readAsDataURL(this.files[0]);
+                extractColorsBtn.disabled = false;
+            }
+        });
+
+        // Drag and drop for upload7
+        upload7.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            upload7.classList.add('dragover');
+        });
+
+        upload7.addEventListener('dragleave', () => {
+            upload7.classList.remove('dragover');
+        });
+
+        upload7.addEventListener('drop', (e) => {
+            e.preventDefault();
+            upload7.classList.remove('dragover');
+            file7.files = e.dataTransfer.files;
+            file7.dispatchEvent(new Event('change'));
+        });
+
+        extractColorsBtn.addEventListener('click', async function() {
+            const formData = new FormData();
+            formData.append('file', file7.files[0]);
+            const numColors = numColorsSlider.value;
+
+            document.getElementById('loading7').classList.add('show');
+            document.getElementById('result7').classList.remove('show');
+            document.getElementById('error7').classList.remove('show');
+
+            try {
+                const response = await fetch(`/extractColors?num_colors=${numColors}`, {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    // Display colors in grid
+                    const colorsGrid = document.getElementById('colors-grid');
+                    colorsGrid.innerHTML = '';
+                    
+                    data.colors.forEach((color, index) => {
+                        const colorCard = document.createElement('div');
+                        colorCard.style.cssText = `
+                            background: white;
+                            border-radius: 10px;
+                            padding: 15px;
+                            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+                            text-align: center;
+                        `;
+                        
+                        colorCard.innerHTML = `
+                            <div style="
+                                width: 100%;
+                                height: 80px;
+                                background-color: ${color.hex};
+                                border-radius: 8px;
+                                margin-bottom: 10px;
+                                box-shadow: inset 0 2px 4px rgba(0,0,0,0.1);
+                            "></div>
+                            <div style="font-weight: bold; color: #667eea; margin-bottom: 5px;">
+                                ${color.color_name}
+                            </div>
+                            <div style="font-size: 0.9em; color: #666; margin: 3px 0;">
+                                ${color.hex}
+                            </div>
+                            <div style="font-size: 0.85em; color: #888; margin: 3px 0;">
+                                RGB(${color.rgb.join(', ')})
+                            </div>
+                            <div style="font-weight: bold; color: #764ba2; margin-top: 8px;">
+                                ${color.percentage}%
+                            </div>
+                        `;
+                        
+                        colorsGrid.appendChild(colorCard);
+                    });
+                    
+                    // Display image info
+                    document.getElementById('colors-dimensions').textContent = 
+                        data.image_info.width + ' x ' + data.image_info.height + ' pixels';
+                    document.getElementById('colors-pixels').textContent = 
+                        data.image_info.total_pixels.toLocaleString();
+                    document.getElementById('colors-count').textContent = data.total_colors_found;
+                    
+                    document.getElementById('result7').classList.add('show');
+                } else {
+                    throw new Error(data.detail || 'Color extraction failed');
+                }
+            } catch (error) {
+                document.getElementById('error7').textContent = '❌ Error: ' + error.message;
+                document.getElementById('error7').classList.add('show');
+            } finally {
+                document.getElementById('loading7').classList.remove('show');
+            }
+        });
+
+        // Face Detection Feature
+        const file8 = document.getElementById('file8');
+        const preview8 = document.getElementById('preview8');
+        const detectFacesBtn = document.getElementById('detect-faces-btn');
+        const upload8 = document.getElementById('upload8');
+        let facesImageData = '';
+
+        file8.addEventListener('change', function() {
+            if (this.files && this.files[0]) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    preview8.src = e.target.result;
+                    preview8.classList.add('show');
+                };
+                reader.readAsDataURL(this.files[0]);
+                detectFacesBtn.disabled = false;
+            }
+        });
+
+        // Drag and drop for upload8
+        upload8.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            upload8.classList.add('dragover');
+        });
+
+        upload8.addEventListener('dragleave', () => {
+            upload8.classList.remove('dragover');
+        });
+
+        upload8.addEventListener('drop', (e) => {
+            e.preventDefault();
+            upload8.classList.remove('dragover');
+            file8.files = e.dataTransfer.files;
+            file8.dispatchEvent(new Event('change'));
+        });
+
+        detectFacesBtn.addEventListener('click', async function() {
+            const formData = new FormData();
+            formData.append('file', file8.files[0]);
+
+            document.getElementById('loading8').classList.add('show');
+            document.getElementById('result8').classList.remove('show');
+            document.getElementById('error8').classList.remove('show');
+
+            try {
+                const response = await fetch('/detectFaces', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    // Display the face count
+                    document.getElementById('face-count').textContent = data.faces_detected;
+                    
+                    // Display the marked image
+                    document.getElementById('faces-result').src = data.marked_image_base64;
+                    facesImageData = data.marked_image_base64;
+                    
+                    // Display image info
+                    document.getElementById('faces-dimensions').textContent = 
+                        data.image_info.width + ' x ' + data.image_info.height + ' pixels';
+                    document.getElementById('faces-format').textContent = data.image_info.format;
+                    document.getElementById('faces-size').textContent = 
+                        (data.image_info.size_bytes / 1024).toFixed(2) + ' KB';
+                    
+                    document.getElementById('result8').classList.add('show');
+                } else {
+                    throw new Error(data.detail || 'Face detection failed');
+                }
+            } catch (error) {
+                document.getElementById('error8').textContent = '❌ Error: ' + error.message;
+                document.getElementById('error8').classList.add('show');
+            } finally {
+                document.getElementById('loading8').classList.remove('show');
+            }
+        });
+
+        // Download faces marked image
+        function downloadFaces() {
+            if (!facesImageData) return;
+            
+            const link = document.createElement('a');
+            link.href = facesImageData;
+            link.download = 'faces_detected_' + new Date().getTime() + '.jpg';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
     </script>
 </body>
 </html>

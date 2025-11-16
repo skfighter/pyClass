@@ -200,6 +200,101 @@ class BlackAndWhiteResponse(BaseModel):
         }
 
 
+class FaceDetectionResponse(BaseModel):
+    """Response model for face detection endpoint"""
+    
+    success: bool = Field(
+        ...,
+        description="Whether the face detection was successful"
+    )
+    filename: str = Field(
+        ...,
+        description="Original filename of the uploaded image"
+    )
+    marked_image_base64: str = Field(
+        ...,
+        description="Base64 encoded image with detected faces marked with red circles"
+    )
+    faces_detected: int = Field(
+        ...,
+        description="Number of faces detected in the image"
+    )
+    image_info: Dict[str, Any] = Field(
+        ...,
+        description="Image metadata (width, height, format, etc.)"
+    )
+    
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "success": True,
+                "filename": "group_photo.jpg",
+                "marked_image_base64": "data:image/jpeg;base64,/9j/4AAQSkZJRg...",
+                "faces_detected": 3,
+                "image_info": {
+                    "width": 1920,
+                    "height": 1080,
+                    "format": "JPEG",
+                    "size_bytes": 245678
+                }
+            }
+        }
+
+
+class ColorExtractionResponse(BaseModel):
+    """Response model for color extraction endpoint"""
+    
+    success: bool = Field(
+        ...,
+        description="Whether the color extraction was successful"
+    )
+    filename: str = Field(
+        ...,
+        description="Original filename of the uploaded image"
+    )
+    colors: list = Field(
+        ...,
+        description="List of dominant colors with RGB, HEX, percentage, and name"
+    )
+    total_colors_found: int = Field(
+        ...,
+        description="Total number of dominant colors extracted"
+    )
+    image_info: Dict[str, Any] = Field(
+        ...,
+        description="Image metadata (width, height, total pixels, etc.)"
+    )
+    
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "success": True,
+                "filename": "sunset.jpg",
+                "colors": [
+                    {
+                        "rgb": [255, 128, 64],
+                        "hex": "#ff8040",
+                        "percentage": 35.5,
+                        "color_name": "Orange"
+                    },
+                    {
+                        "rgb": [64, 128, 192],
+                        "hex": "#4080c0",
+                        "percentage": 28.3,
+                        "color_name": "Blue"
+                    }
+                ],
+                "total_colors_found": 10,
+                "image_info": {
+                    "width": 1920,
+                    "height": 1080,
+                    "total_pixels": 2073600,
+                    "format": "JPEG"
+                }
+            }
+        }
+
+
 class BackgroundRemovalResponse(BaseModel):
     """Response model for background removal endpoint"""
     

@@ -11,6 +11,8 @@ This module provides endpoints for:
 import logging
 from typing import Dict
 from contextlib import asynccontextmanager
+import time
+import asyncio
 
 from fastapi import FastAPI, File, UploadFile, HTTPException, status, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -23,7 +25,7 @@ from config import settings
 from services.image_service import ImageAnalysisService
 from services.human_detection_service import HumanDetectionService
 from services.audio_service import AudioTranscriptionService
-from models.responses import ImageAnalysisResponse, HealthResponse, InfoResponse, HumanCountResponse, AudioTranscriptionResponse, BlackAndWhiteResponse, BackgroundRemovalResponse
+from models.responses import ImageAnalysisResponse, HealthResponse, InfoResponse, HumanCountResponse, AudioTranscriptionResponse, BlackAndWhiteResponse, BackgroundRemovalResponse, ColorExtractionResponse, FaceDetectionResponse
 from utils.file_validation import validate_file_type, validate_file_size
 
 # Configure logging
@@ -37,6 +39,11 @@ logger = logging.getLogger(__name__)
 image_service: ImageAnalysisService = None
 human_detection_service: HumanDetectionService = None
 audio_service: AudioTranscriptionService = None
+
+# Rate limiting for real-time detection - per session tracking
+from collections import defaultdict
+last_detection_times = defaultdict(float)
+DETECTION_RATE_LIMIT = 1.0  # seconds between requests per client
 
 
 @asynccontextmanager
@@ -115,6 +122,23 @@ async def root(request: Request):
     )
 
 
+@app.get("/web-expo", response_class=HTMLResponse, tags=["General"])
+async def web_expo(request: Request):
+    """
+    Web Expo route - Alternative web interface
+    
+    Returns:
+        HTML page for web expo showcase
+    """
+    return templates.TemplateResponse(
+        "web-expo.html",
+        {
+            "request": request,
+            "version": settings.api_version
+        }
+    )
+
+
 @app.get("/health", response_model=HealthResponse, tags=["Health"])
 async def health_check() -> HealthResponse:
     """
@@ -143,13 +167,17 @@ async def api_info() -> InfoResponse:
         description=settings.api_description,
         endpoints={
             "GET /": "Welcome message",
+            "GET /web-expo": "Real-time object detection webcam",
             "GET /health": "Health check",
             "GET /api/info": "API information",
             "POST /seeImageAiInfo": "Image analysis with AI and OCR",
             "POST /checkHumansCount": "Count humans in image",
             "POST /transcribeAudio": "Transcribe audio to text",
             "POST /convertToBlackAndWhite": "Convert image to black and white",
-            "POST /removeBackground": "Remove background from image"
+            "POST /removeBackground": "Remove background from image",
+            "POST /extractColors": "Extract dominant colors from image",
+            "POST /detectFaces": "Detect faces and mark with red circles",
+            "POST /detectObjects": "Real-time object detection (for webcam)"
         }
     )
 
@@ -468,6 +496,224 @@ async def convert_to_black_and_white(file: UploadFile = File(...)) -> BlackAndWh
         raise
     except Exception as e:
         logger.error(f"Error converting image {file.filename}: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error processing image: {str(e)}"
+        )
+    finally:
+        await file.close()
+
+
+@app.post("/extractColors", response_model=ColorExtractionResponse, tags=["Image Analysis"])
+async def extract_colors(
+    file: UploadFile = File(...),
+    num_colors: int = 10
+) -> ColorExtractionResponse:
+    """
+    Extract dominant colors from an uploaded image
+    
+    This endpoint:
+    1. Analyzes the image to find dominant colors
+    2. Uses K-means clustering to identify the most prominent colors
+    3. Returns RGB, HEX values, percentages, and color names
+    
+    Args:
+        file: Uploaded image file (JPG, PNG, WEBP, GIF, BMP)
+        num_colors: Number of dominant colors to extract (default: 10, max: 20)
+    
+    Returns:
+        ColorExtractionResponse with list of colors and their properties
+    
+    Raises:
+        HTTPException:
+            - 503 if service is not available
+            - 400 if file type is invalid or file is too large
+            - 500 if processing fails
+    """
+    # Check if service is ready
+    if image_service is None or not image_service.is_ready():
+        logger.error("Color extraction requested but service not ready")
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Service not available. Server is still loading, please try again in a moment."
+        )
+    
+    # Validate file type
+    allowed_exts = [f".{ext}" for ext in settings.allowed_extensions]
+    validate_file_type(file, allowed_exts, "image")
+    
+    # Validate num_colors parameter
+    if num_colors < 1 or num_colors > 20:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="num_colors must be between 1 and 20"
+        )
+    
+    try:
+        # Read file contents
+        contents = await file.read()
+        
+        # Validate file size
+        file_size_mb, _ = validate_file_size(contents, settings.max_file_size_mb, file.filename)
+        
+        logger.info(f"Extracting colors from: {file.filename} ({file_size_mb:.2f}MB)")
+        
+        # Extract colors
+        result = await image_service.extract_colors(contents, file.filename, num_colors)
+        
+        logger.info(f"Successfully extracted colors from: {file.filename}")
+        
+        return ColorExtractionResponse(
+            success=True,
+            filename=file.filename,
+            colors=result["colors"],
+            total_colors_found=result["total_colors_found"],
+            image_info=result["image_info"]
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error extracting colors from {file.filename}: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error processing image: {str(e)}"
+        )
+    finally:
+        await file.close()
+
+
+@app.post("/detectFaces", response_model=FaceDetectionResponse, tags=["Image Analysis"])
+async def detect_faces(file: UploadFile = File(...)) -> FaceDetectionResponse:
+    """
+    Detect human faces in uploaded image and mark them with red circles
+    
+    This endpoint:
+    1. Analyzes the image to detect human faces
+    2. Uses OpenCV Haar Cascade classifier for face detection
+    3. Marks each detected face with a red circle
+    4. Returns the marked image with face count
+    
+    Args:
+        file: Uploaded image file (JPG, PNG, WEBP, GIF, BMP)
+    
+    Returns:
+        FaceDetectionResponse with marked image and face count
+    
+    Raises:
+        HTTPException:
+            - 503 if service is not available
+            - 400 if file type is invalid or file is too large
+            - 500 if processing fails
+    """
+    # Check if service is ready
+    if human_detection_service is None or not human_detection_service.is_ready():
+        logger.error("Face detection requested but service not ready")
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Service not available. Server is still loading, please try again in a moment."
+        )
+    
+    # Validate file type
+    allowed_exts = [f".{ext}" for ext in settings.allowed_extensions]
+    validate_file_type(file, allowed_exts, "image")
+    
+    try:
+        # Read file contents
+        contents = await file.read()
+        
+        # Validate file size
+        file_size_mb, _ = validate_file_size(contents, settings.max_file_size_mb, file.filename)
+        
+        logger.info(f"Detecting faces in: {file.filename} ({file_size_mb:.2f}MB)")
+        
+        # Detect faces
+        result = await human_detection_service.detect_faces(contents, file.filename)
+        
+        logger.info(f"Successfully detected {result['faces_detected']} face(s) in: {file.filename}")
+        
+        return FaceDetectionResponse(
+            success=True,
+            filename=file.filename,
+            marked_image_base64=result["marked_image_base64"],
+            faces_detected=result["faces_detected"],
+            image_info=result["image_info"]
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error detecting faces in {file.filename}: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error processing image: {str(e)}"
+        )
+    finally:
+        await file.close()
+
+
+@app.post("/detectObjects", tags=["Real-Time Detection"])
+async def detect_objects(request: Request, file: UploadFile = File(...)) -> Dict:
+    """
+    Detect all objects in uploaded image for real-time detection
+    
+    This endpoint is optimized for real-time webcam streams:
+    1. Fast inference with YOLOv8
+    2. Returns all detected objects with confidence scores
+    3. Supports 80+ object classes from COCO dataset
+    4. Rate limited to 1 request per second per client
+    
+    Args:
+        request: FastAPI request object (for client identification)
+        file: Uploaded image file (typically a webcam frame)
+    
+    Returns:
+        Dictionary with detected objects array
+    
+    Raises:
+        HTTPException: 
+            - 503 if detection model is not available
+            - 429 if rate limit exceeded
+            - 500 if processing fails
+    """
+    # Get client identifier
+    client_id = request.client.host
+    
+    # Check rate limit per client
+    current_time = time.time()
+    last_time = last_detection_times[client_id]
+    time_since_last = current_time - last_time
+    
+    if time_since_last < DETECTION_RATE_LIMIT and last_time > 0:
+        # Instead of rejecting, wait for the remaining time
+        wait_time = DETECTION_RATE_LIMIT - time_since_last
+        await asyncio.sleep(wait_time)
+        current_time = time.time()
+    
+    # Check if service is ready
+    if human_detection_service is None or not human_detection_service.is_ready():
+        logger.error("Object detection requested but service not ready")
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Detection model not available. Server is still loading, please try again."
+        )
+    
+    try:
+        # Read file contents
+        contents = await file.read()
+        
+        # Detect all objects
+        result = await human_detection_service.detect_all_objects(contents)
+        
+        # Update last detection time for this client
+        last_detection_times[client_id] = current_time
+        
+        return result
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error detecting objects: {e}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error processing image: {str(e)}"
