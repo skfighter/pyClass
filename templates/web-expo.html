@@ -1,0 +1,899 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Real-Time Object Detection - PyClass AI</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #0a0e27;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        /* Animated background */
+        .bg-animation {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 0;
+            background: linear-gradient(135deg, #0a0e27 0%, #1a1f3a 100%);
+        }
+
+        .bg-animation::before {
+            content: '';
+            position: absolute;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle, rgba(102, 126, 234, 0.1) 1px, transparent 1px);
+            background-size: 50px 50px;
+            animation: bgMove 20s linear infinite;
+        }
+
+        @keyframes bgMove {
+            0% { transform: translate(0, 0); }
+            100% { transform: translate(50px, 50px); }
+        }
+
+        .container {
+            position: relative;
+            z-index: 1;
+            max-width: 1600px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        /* Header */
+        .header {
+            text-align: center;
+            color: white;
+            margin-bottom: 30px;
+            animation: fadeInDown 0.8s ease;
+        }
+
+        @keyframes fadeInDown {
+            from {
+                opacity: 0;
+                transform: translateY(-30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .header h1 {
+            font-size: 3rem;
+            margin-bottom: 10px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            font-weight: 800;
+            letter-spacing: -1px;
+        }
+
+        .header p {
+            font-size: 1.1rem;
+            color: #a0aec0;
+            font-weight: 300;
+        }
+
+        .badge {
+            display: inline-block;
+            background: rgba(102, 126, 234, 0.2);
+            color: #667eea;
+            padding: 6px 16px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            margin-top: 10px;
+            border: 1px solid rgba(102, 126, 234, 0.3);
+        }
+
+        /* Control Panel */
+        .control-panel {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 20px;
+            padding: 30px;
+            margin-bottom: 30px;
+            animation: fadeIn 1s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        .btn-container {
+            display: flex;
+            gap: 20px;
+            justify-content: center;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .start-btn {
+            position: relative;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 18px 50px;
+            font-size: 1.2rem;
+            font-weight: 700;
+            border-radius: 50px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 10px 30px rgba(102, 126, 234, 0.4);
+            overflow: hidden;
+        }
+
+        .start-btn::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: rgba(255, 255, 255, 0.2);
+            transition: left 0.5s ease;
+        }
+
+        .start-btn:hover::before {
+            left: 100%;
+        }
+
+        .start-btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 15px 40px rgba(102, 126, 234, 0.6);
+        }
+
+        .start-btn.active {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            box-shadow: 0 10px 30px rgba(245, 87, 108, 0.4);
+        }
+
+        .settings-btn {
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            padding: 18px 35px;
+            font-size: 1rem;
+            font-weight: 600;
+            border-radius: 50px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .settings-btn:hover {
+            background: rgba(255, 255, 255, 0.15);
+            transform: translateY(-2px);
+        }
+
+        /* Main Grid */
+        .main-grid {
+            display: grid;
+            grid-template-columns: 1.5fr 1fr;
+            gap: 25px;
+            animation: fadeInUp 1s ease;
+        }
+
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* Video Section */
+        .video-card {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 20px;
+            padding: 20px;
+            position: relative;
+        }
+
+        .video-wrapper {
+            position: relative;
+            background: #000;
+            border-radius: 15px;
+            overflow: hidden;
+            aspect-ratio: 16/9;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+        }
+
+        #webcam {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .video-placeholder {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 20px;
+            background: linear-gradient(135deg, #1a1f3a 0%, #2d3561 100%);
+        }
+
+        .video-placeholder.hidden {
+            display: none;
+        }
+
+        .placeholder-icon {
+            font-size: 4rem;
+            animation: bounce 2s infinite;
+        }
+
+        @keyframes bounce {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-20px); }
+        }
+
+        .placeholder-text {
+            color: #a0aec0;
+            font-size: 1.1rem;
+            text-align: center;
+        }
+
+        .status-bar {
+            position: absolute;
+            top: 30px;
+            left: 30px;
+            right: 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            z-index: 10;
+        }
+
+        .status-indicator {
+            background: rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(10px);
+            color: white;
+            padding: 10px 20px;
+            border-radius: 25px;
+            font-size: 0.9rem;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .status-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #ef4444;
+            animation: pulse 2s infinite;
+        }
+
+        .status-dot.active {
+            background: #10b981;
+            box-shadow: 0 0 15px #10b981;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.7; transform: scale(0.95); }
+        }
+
+        .fps-counter {
+            background: rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(10px);
+            color: #10b981;
+            padding: 10px 20px;
+            border-radius: 25px;
+            font-size: 1rem;
+            font-weight: bold;
+            font-family: 'Courier New', monospace;
+            border: 1px solid rgba(16, 185, 129, 0.3);
+        }
+
+        /* Detection Panel */
+        .detection-panel {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 20px;
+            padding: 25px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .panel-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            color: white;
+        }
+
+        .panel-header h2 {
+            font-size: 1.5rem;
+            font-weight: 700;
+        }
+
+        .icon {
+            font-size: 1.8rem;
+        }
+
+        /* Stats Cards */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+        }
+
+        .stat-card {
+            background: linear-gradient(135deg, rgba(102, 126, 234, 0.1) 0%, rgba(118, 75, 162, 0.1) 100%);
+            border: 1px solid rgba(102, 126, 234, 0.2);
+            padding: 20px;
+            border-radius: 15px;
+            text-align: center;
+            transition: all 0.3s ease;
+        }
+
+        .stat-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 25px rgba(102, 126, 234, 0.2);
+        }
+
+        .stat-label {
+            font-size: 0.85rem;
+            color: #a0aec0;
+            margin-bottom: 8px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .stat-value {
+            font-size: 2.5rem;
+            font-weight: bold;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        /* Detection List */
+        .detection-list-wrapper {
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 15px;
+            padding: 20px;
+            max-height: 450px;
+            overflow-y: auto;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .detection-list-wrapper::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .detection-list-wrapper::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 10px;
+        }
+
+        .detection-list-wrapper::-webkit-scrollbar-thumb {
+            background: rgba(102, 126, 234, 0.5);
+            border-radius: 10px;
+        }
+
+        .detection-list-wrapper::-webkit-scrollbar-thumb:hover {
+            background: rgba(102, 126, 234, 0.7);
+        }
+
+        .list-header {
+            color: #a0aec0;
+            font-size: 0.9rem;
+            margin-bottom: 15px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .detection-item {
+            background: linear-gradient(135deg, rgba(102, 126, 234, 0.15) 0%, rgba(118, 75, 162, 0.15) 100%);
+            border: 1px solid rgba(102, 126, 234, 0.2);
+            padding: 15px 18px;
+            border-radius: 12px;
+            margin-bottom: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            animation: slideIn 0.4s ease;
+            transition: all 0.3s ease;
+        }
+
+        .detection-item:hover {
+            transform: translateX(5px);
+            border-color: rgba(102, 126, 234, 0.4);
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateX(-30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+
+        .detection-name {
+            font-weight: 600;
+            color: white;
+            font-size: 1.05rem;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .count-badge {
+            background: rgba(102, 126, 234, 0.3);
+            color: #667eea;
+            padding: 2px 10px;
+            border-radius: 12px;
+            font-size: 0.8rem;
+        }
+
+        .confidence-badge {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 6px 14px;
+            border-radius: 15px;
+            font-size: 0.85rem;
+            font-weight: 700;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+        }
+
+        .no-detections {
+            text-align: center;
+            color: #64748b;
+            padding: 60px 20px;
+            font-style: italic;
+            font-size: 1.1rem;
+        }
+
+        .loading-spinner {
+            display: inline-block;
+            width: 24px;
+            height: 24px;
+            border: 3px solid rgba(255,255,255,.3);
+            border-radius: 50%;
+            border-top-color: #fff;
+            animation: spin 1s ease-in-out infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* Responsive */
+        @media (max-width: 1200px) {
+            .main-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .header h1 {
+                font-size: 2.5rem;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .header h1 {
+                font-size: 2rem;
+            }
+
+            .stats-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .btn-container {
+                flex-direction: column;
+            }
+
+            .start-btn, .settings-btn {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Animated Background -->
+    <div class="bg-animation"></div>
+
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <h1>🎯 Real-Time Object Detection</h1>
+            <p>AI-Powered Live Recognition with YOLOv8 & GPU Acceleration</p>
+            <div class="badge">⚡ Blazing Fast • 🧠 AI Powered • 🎥 Real-Time</div>
+        </div>
+
+        <!-- Control Panel -->
+        <div class="control-panel">
+            <div class="btn-container">
+                <button id="startBtn" class="start-btn">
+                    <span id="btnText">🚀 Start Detection</span>
+                </button>
+                <button class="settings-btn" onclick="showSettings()">
+                    ⚙️ Settings
+                </button>
+            </div>
+        </div>
+
+        <!-- Main Content Grid -->
+        <div class="main-grid">
+            <!-- Video Card -->
+            <div class="video-card">
+                <div class="video-wrapper">
+                    <div id="placeholder" class="video-placeholder">
+                        <div class="placeholder-icon">🎥</div>
+                        <div class="placeholder-text">
+                            Click "Start Detection" to activate your webcam<br>
+                            <small style="opacity: 0.7;">Powered by AI for blazing fast detection</small>
+                        </div>
+                    </div>
+                    <video id="webcam" autoplay playsinline style="display:none;"></video>
+                    
+                    <div class="status-bar">
+                        <div class="status-indicator">
+                            <div class="status-dot" id="statusDot"></div>
+                            <span id="statusText">Inactive</span>
+                        </div>
+                        <div class="fps-counter" id="fpsCounter">
+                            <span id="fpsValue">0</span> FPS
+                        </div>
+                    </div>
+                    
+                    <canvas id="canvas" style="display:none;"></canvas>
+                </div>
+            </div>
+
+            <!-- Detection Panel -->
+            <div class="detection-panel">
+                <div class="panel-header">
+                    <span class="icon">🎯</span>
+                    <h2>Live Detections</h2>
+                </div>
+
+                <!-- Stats Grid -->
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-label">Total Objects</div>
+                        <div class="stat-value" id="totalObjects">0</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">Unique Types</div>
+                        <div class="stat-value" id="uniqueTypes">0</div>
+                    </div>
+                </div>
+
+                <!-- Detection List -->
+                <div class="detection-list-wrapper">
+                    <div class="list-header">
+                        <span>📋</span>
+                        <span>Detection Log</span>
+                    </div>
+                    <div id="detectionList">
+                        <div class="no-detections">Waiting for detection to start...</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const startBtn = document.getElementById('startBtn');
+        const btnText = document.getElementById('btnText');
+        const webcam = document.getElementById('webcam');
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        const placeholder = document.getElementById('placeholder');
+        const statusDot = document.getElementById('statusDot');
+        const statusText = document.getElementById('statusText');
+        const detectionList = document.getElementById('detectionList');
+        const totalObjectsEl = document.getElementById('totalObjects');
+        const uniqueTypesEl = document.getElementById('uniqueTypes');
+        const fpsCounter = document.getElementById('fpsCounter');
+        const fpsValue = document.getElementById('fpsValue');
+
+        let isRunning = false;
+        let stream = null;
+        let animationId = null;
+        let detectionInterval = null;
+        let frameCount = 0;
+        let lastTime = Date.now();
+
+        startBtn.addEventListener('click', async () => {
+            if (!isRunning) {
+                await startDetection();
+            } else {
+                stopDetection();
+            }
+        });
+
+        async function startDetection() {
+            try {
+                startBtn.disabled = true;
+                startBtn.innerHTML = '<span class="loading"></span> Initializing...';
+
+                // Request webcam access
+                stream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { 
+                        width: { ideal: 1280 },
+                        height: { ideal: 720 }
+                    } 
+                });
+
+                webcam.srcObject = stream;
+                webcam.style.display = 'block';
+                placeholder.classList.add('hidden');
+
+                // Wait for video to load
+                await new Promise((resolve) => {
+                    webcam.onloadedmetadata = () => {
+                        canvas.width = webcam.videoWidth;
+                        canvas.height = webcam.videoHeight;
+                        resolve();
+                    };
+                });
+
+                isRunning = true;
+                statusDot.classList.add('active');
+                statusText.textContent = 'Active';
+                startBtn.classList.add('active');
+                btnText.innerHTML = '⏸️ Stop Detection';
+                startBtn.disabled = false;
+
+                // Start detection loop
+                processFrame();
+
+            } catch (error) {
+                console.error('Error starting detection:', error);
+                alert('Failed to access webcam. Please ensure camera permissions are granted.');
+                startBtn.disabled = false;
+                btnText.innerHTML = '🚀 Start Detection';
+            }
+        }
+
+        function stopDetection() {
+            isRunning = false;
+
+            if (stream) {
+                stream.getTracks().forEach(track => track.stop());
+                stream = null;
+            }
+
+            if (animationId) {
+                cancelAnimationFrame(animationId);
+                animationId = null;
+            }
+
+            if (detectionInterval) {
+                clearInterval(detectionInterval);
+                detectionInterval = null;
+            }
+
+            webcam.style.display = 'none';
+            placeholder.classList.remove('hidden');
+            statusDot.classList.remove('active');
+            statusText.textContent = 'Inactive';
+            startBtn.classList.remove('active');
+            btnText.innerHTML = '🚀 Start Detection';
+
+            // Clear detections
+            detectionList.innerHTML = '<div class="no-detections">No objects detected yet...</div>';
+            totalObjectsEl.textContent = '0';
+            uniqueTypesEl.textContent = '0';
+        }
+
+        async function processFrame() {
+            if (!isRunning) return;
+
+            // Calculate FPS
+            frameCount++;
+            const currentTime = Date.now();
+            if (currentTime - lastTime >= 1000) {
+                fpsValue.textContent = frameCount;
+                frameCount = 0;
+                lastTime = currentTime;
+            }
+
+            // Capture frame and send to backend
+            ctx.drawImage(webcam, 0, 0, canvas.width, canvas.height);
+            canvas.toBlob(async (blob) => {
+                if (!isRunning) return;
+
+                try {
+                    const formData = new FormData();
+                    formData.append('file', blob, 'frame.jpg');
+
+                    const response = await fetch('/detectObjects', {
+                        method: 'POST',
+                        body: formData
+                    });
+
+                    if (response.ok) {
+                        const data = await response.json();
+                        updateDetections(data.objects);
+                    }
+                } catch (error) {
+                    console.error('Detection error:', error);
+                }
+            }, 'image/jpeg', 0.8);
+
+            // Process next frame - GPU accelerated for blazing fast performance!
+            // RTX 2060 can handle high FPS, server handles rate limiting (1 req/sec)
+            setTimeout(() => {
+                animationId = requestAnimationFrame(processFrame);
+            }, 1000); // 1 second between requests (1 FPS) - server rate limited
+        }
+
+        function updateDetections(objects) {
+            if (!objects || objects.length === 0) {
+                detectionList.innerHTML = '<div class="no-detections">No objects detected in frame...</div>';
+                totalObjectsEl.textContent = '0';
+                uniqueTypesEl.textContent = '0';
+                return;
+            }
+
+            // Count unique object types
+            const uniqueObjects = new Set(objects.map(obj => obj.name));
+            
+            totalObjectsEl.textContent = objects.length;
+            uniqueTypesEl.textContent = uniqueObjects.size;
+
+            // Group objects by name and count
+            const objectCounts = {};
+            objects.forEach(obj => {
+                if (!objectCounts[obj.name]) {
+                    objectCounts[obj.name] = {
+                        count: 0,
+                        maxConfidence: 0
+                    };
+                }
+                objectCounts[obj.name].count++;
+                objectCounts[obj.name].maxConfidence = Math.max(
+                    objectCounts[obj.name].maxConfidence,
+                    obj.confidence
+                );
+            });
+
+            // Sort by count (descending)
+            const sortedObjects = Object.entries(objectCounts)
+                .sort((a, b) => b[1].count - a[1].count);
+
+            // Update detection list with new modern design
+            detectionList.innerHTML = sortedObjects.map(([name, data]) => `
+                <div class="detection-item">
+                    <div class="detection-name">
+                        <span>${getObjectIcon(name)}</span>
+                        <span>${capitalizeFirst(name)}</span>
+                        ${data.count > 1 ? `<span class="count-badge">×${data.count}</span>` : ''}
+                    </div>
+                    <div class="confidence-badge">
+                        ${Math.round(data.maxConfidence)}%
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function capitalizeFirst(str) {
+            return str.charAt(0).toUpperCase() + str.slice(1);
+        }
+
+        function getObjectIcon(name) {
+            const icons = {
+                'person': '👤',
+                'car': '🚗',
+                'bicycle': '🚲',
+                'motorcycle': '🏍️',
+                'bus': '🚌',
+                'truck': '🚚',
+                'cat': '🐱',
+                'dog': '🐕',
+                'bird': '🐦',
+                'horse': '🐴',
+                'sheep': '🐑',
+                'cow': '🐄',
+                'bottle': '🍾',
+                'cup': '☕',
+                'fork': '🍴',
+                'knife': '🔪',
+                'spoon': '🥄',
+                'bowl': '🥣',
+                'banana': '🍌',
+                'apple': '🍎',
+                'sandwich': '🥪',
+                'orange': '🍊',
+                'broccoli': '🥦',
+                'carrot': '🥕',
+                'pizza': '🍕',
+                'donut': '🍩',
+                'cake': '🍰',
+                'chair': '🪑',
+                'couch': '🛋️',
+                'bed': '🛏️',
+                'dining table': '🍽️',
+                'toilet': '🚽',
+                'tv': '📺',
+                'laptop': '💻',
+                'mouse': '🖱️',
+                'keyboard': '⌨️',
+                'cell phone': '📱',
+                'book': '📚',
+                'clock': '🕐',
+                'vase': '🏺',
+                'scissors': '✂️',
+                'teddy bear': '🧸',
+                'toothbrush': '🪥',
+                'airplane': '✈️',
+                'train': '🚂',
+                'boat': '⛵',
+                'traffic light': '🚦',
+                'fire hydrant': '🚒',
+                'stop sign': '🛑',
+                'backpack': '🎒',
+                'umbrella': '☂️',
+                'handbag': '👜',
+                'tie': '👔',
+                'suitcase': '🧳',
+                'frisbee': '🥏',
+                'skis': '🎿',
+                'snowboard': '🏂',
+                'sports ball': '⚽',
+                'kite': '🪁',
+                'baseball bat': '⚾',
+                'skateboard': '🛹',
+                'surfboard': '🏄',
+                'tennis racket': '🎾'
+            };
+            return icons[name.toLowerCase()] || '🔷';
+        }
+
+        function showSettings() {
+            alert('Settings panel coming soon!\n\nFeatures:\n• Adjust detection speed (FPS)\n• Change confidence threshold\n• Select specific object classes\n• Toggle sound notifications\n• Export detection log');
+        }
+
+        // Handle page visibility change
+        document.addEventListener('visibilitychange', () => {
+            if (document.hidden && isRunning) {
+                stopDetection();
+            }
+        });
+
+        // Cleanup on page unload
+        window.addEventListener('beforeunload', () => {
+            if (isRunning) {
+                stopDetection();
+            }
+        });
+    </script>
+</body>
+</html>
